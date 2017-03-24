@@ -363,8 +363,23 @@ func (hs *serverHandshakeState) checkForResumption() bool {
 	}
 
 	sessionTicket := append([]uint8{}, hs.clientHello.sessionTicket...)
-	serializedState, usedOldKey := c.decryptTicket(sessionTicket)
-	hs.sessionState = &sessionState{usedOldKey: usedOldKey}
+	if len(sessionTicket) == 0 {
+		return false
+	}
+
+	hs.sessionState = new(sessionState)
+
+	var serializedState []byte
+	if c.config.SessionTicketSealer != nil {
+		var ok bool
+		serializedState, ok = c.config.SessionTicketSealer.Unseal(hs.clientHelloInfo(), sessionTicket)
+		if !ok {
+			return false
+		}
+	} else {
+		serializedState, hs.sessionState.usedOldKey = c.decryptTicket(sessionTicket)
+	}
+
 	if hs.sessionState.unmarshal(serializedState) != alertSuccess {
 		return false
 	}
@@ -744,7 +759,14 @@ func (hs *serverHandshakeState) sendSessionTicket() error {
 		masterSecret: hs.masterSecret,
 		certificates: hs.certsFromClient,
 	}
-	m.ticket, err = c.encryptTicket(state.marshal())
+	if c.config.SessionTicketSealer != nil {
+		var cs ConnectionState
+		cs.ServerName = c.serverName
+
+		m.ticket, err = c.config.SessionTicketSealer.Seal(&cs, state.marshal())
+	} else {
+		m.ticket, err = c.encryptTicket(state.marshal())
+	}
 	if err != nil {
 		return err
 	}
