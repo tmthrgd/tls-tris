@@ -367,26 +367,29 @@ Curves:
 func (hs *serverHandshakeState) checkForResumption() bool {
 	c := hs.c
 
-	if c.config.SessionTicketsDisabled {
-		return false
-	}
-
-	sessionTicket := append([]uint8{}, hs.clientHello.sessionTicket...)
-	if len(sessionTicket) == 0 {
-		return false
-	}
-
 	hs.sessionState = new(sessionState)
 
 	var serializedState []byte
-	if c.config.SessionTicketSealer != nil {
+	if !c.config.SessionTicketsDisabled && len(hs.clientHello.sessionTicket) != 0 {
+		sessionTicket := append([]uint8{}, hs.clientHello.sessionTicket...)
+
+		if c.config.SessionTicketSealer != nil {
+			var ok bool
+			serializedState, ok = c.config.SessionTicketSealer.Unseal(hs.clientHelloInfo(), sessionTicket)
+			if !ok {
+				return false
+			}
+		} else {
+			serializedState, hs.sessionState.usedOldKey = c.decryptTicket(sessionTicket)
+		}
+	} else if c.config.ServerSessionCache != nil && len(hs.clientHello.sessionId) == sessionIdLen {
 		var ok bool
-		serializedState, ok = c.config.SessionTicketSealer.Unseal(hs.clientHelloInfo(), sessionTicket)
+		serializedState, ok = c.config.ServerSessionCache.Get(hs.clientHelloInfo(), string(hs.clientHello.sessionId))
 		if !ok {
 			return false
 		}
 	} else {
-		serializedState, hs.sessionState.usedOldKey = c.decryptTicket(sessionTicket)
+		return false
 	}
 
 	if hs.sessionState.unmarshal(serializedState) != alertSuccess {
@@ -463,6 +466,15 @@ func (hs *serverHandshakeState) doFullHandshake() error {
 
 	hs.hello.ticketSupported = hs.clientHello.ticketSupported && !c.config.SessionTicketsDisabled
 	hs.hello.cipherSuite = hs.suite.id
+
+	// Generate a session ID if we're to save the session.
+	if !hs.hello.ticketSupported && c.config.ServerSessionCache != nil {
+		hs.hello.sessionId = make([]byte, sessionIdLen)
+		if _, err := io.ReadFull(c.config.rand(), hs.hello.sessionId); err != nil {
+			c.sendAlert(alertInternalError)
+			return errors.New("tls: short read from Rand: " + err.Error())
+		}
+	}
 
 	hs.finishedHash = newFinishedHash(hs.c.vers, hs.suite)
 	if c.config.ClientAuth == NoClientCert {
@@ -754,24 +766,28 @@ func (hs *serverHandshakeState) readFinished(out []byte) error {
 }
 
 func (hs *serverHandshakeState) sendSessionTicket() error {
-	if !hs.hello.ticketSupported {
-		return nil
-	}
-
 	c := hs.c
-	m := new(newSessionTicketMsg)
-
-	var err error
 	state := sessionState{
 		vers:         c.vers,
 		cipherSuite:  hs.suite.id,
 		masterSecret: hs.masterSecret,
 		certificates: hs.certsFromClient,
 	}
-	if c.config.SessionTicketSealer != nil {
-		var cs ConnectionState
-		cs.ServerName = c.serverName
 
+	var cs ConnectionState
+	cs.ServerName = c.serverName
+
+	if !hs.hello.ticketSupported {
+		if c.config.ServerSessionCache != nil && len(hs.hello.sessionId) == sessionIdLen {
+			return c.config.ServerSessionCache.Put(&cs, string(hs.hello.sessionId), state.marshal())
+		}
+		return nil
+	}
+
+	m := new(newSessionTicketMsg)
+
+	var err error
+	if c.config.SessionTicketSealer != nil {
 		m.ticket, err = c.config.SessionTicketSealer.Seal(&cs, state.marshal())
 	} else {
 		m.ticket, err = c.encryptTicket(state.marshal())
