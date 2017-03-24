@@ -722,8 +722,8 @@ func TestClientResumption(t *testing.T) {
 	serverConfig.SetSessionTicketKeys([][32]byte{key2, key1})
 	ticket = getTicket()
 	testResumeState("KeyChange", true)
-	if bytes.Equal(ticket, getTicket()) {
-		t.Fatal("new ticket wasn't included while resuming")
+	if !bytes.Equal(ticket, getTicket()) {
+		t.Fatal("new ticket was included while resuming")
 	}
 	testResumeState("KeyChangeFinish", true)
 
@@ -733,7 +733,7 @@ func TestClientResumption(t *testing.T) {
 		CipherSuites: []uint16{TLS_RSA_WITH_RC4_128_SHA, TLS_ECDHE_RSA_WITH_RC4_128_SHA},
 		Certificates: testConfig.Certificates,
 	}
-	serverConfig.SetSessionTicketKeys([][32]byte{key2})
+	serverConfig.SetSessionTicketKeys([][32]byte{key1})
 
 	testResumeState("FreshConfig", true)
 

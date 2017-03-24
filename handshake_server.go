@@ -89,14 +89,6 @@ func (c *Conn) serverHandshake() error {
 		if err := hs.establishKeys(); err != nil {
 			return err
 		}
-		// ticketSupported is set in a resumption handshake if the
-		// ticket from the client was encrypted with an old session
-		// ticket key and thus a refreshed ticket should be sent.
-		if hs.hello.ticketSupported {
-			if err := hs.sendSessionTicket(); err != nil {
-				return err
-			}
-		}
 		if err := hs.sendFinished(c.serverFinished[:]); err != nil {
 			return err
 		}
@@ -367,8 +359,6 @@ Curves:
 func (hs *serverHandshakeState) checkForResumption() bool {
 	c := hs.c
 
-	hs.sessionState = new(sessionState)
-
 	var serializedState []byte
 	if !c.config.SessionTicketsDisabled && len(hs.clientHello.sessionTicket) != 0 {
 		sessionTicket := append([]uint8{}, hs.clientHello.sessionTicket...)
@@ -380,7 +370,7 @@ func (hs *serverHandshakeState) checkForResumption() bool {
 				return false
 			}
 		} else {
-			serializedState, hs.sessionState.usedOldKey = c.decryptTicket(sessionTicket)
+			serializedState, _ = c.decryptTicket(sessionTicket)
 		}
 	} else if c.config.ServerSessionCache != nil && len(hs.clientHello.sessionId) == sessionIdLen {
 		var ok bool
@@ -392,6 +382,7 @@ func (hs *serverHandshakeState) checkForResumption() bool {
 		return false
 	}
 
+	hs.sessionState = new(sessionState)
 	if hs.sessionState.unmarshal(serializedState) != alertSuccess {
 		return false
 	}
@@ -437,7 +428,6 @@ func (hs *serverHandshakeState) doResumeHandshake() error {
 	// We echo the client's session ID in the ServerHello to let it know
 	// that we're doing a resumption.
 	hs.hello.sessionId = hs.clientHello.sessionId
-	hs.hello.ticketSupported = hs.sessionState.usedOldKey
 	hs.finishedHash = newFinishedHash(c.vers, hs.suite)
 	hs.finishedHash.discardHandshakeBuffer()
 	hs.finishedHash.Write(hs.clientHello.marshal())
