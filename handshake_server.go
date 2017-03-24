@@ -292,7 +292,11 @@ Curves:
 
 	hs.cert, err = c.config.getCertificate(hs.clientHelloInfo())
 	if err != nil {
-		c.sendAlert(alertInternalError)
+		if alert, ok := err.(alert); ok {
+			c.sendAlert(alert)
+		} else {
+			c.sendAlert(alertInternalError)
+		}
 		return false, err
 	}
 	if hs.clientHello.scts && hs.hello != nil {

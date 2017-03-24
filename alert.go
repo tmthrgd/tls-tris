@@ -39,6 +39,7 @@ const (
 	alertInappropriateFallback  alert = 86
 	alertUserCanceled           alert = 90
 	alertNoRenegotiation        alert = 100
+	alertUnrecognizedName       alert = 112
 	alertNoApplicationProtocol  alert = 120
 	alertSuccess                alert = 255 // dummy value returned by unmarshal functions
 )
@@ -67,6 +68,7 @@ var alertText = map[alert]string{
 	alertInappropriateFallback:  "inappropriate fallback",
 	alertUserCanceled:           "user canceled",
 	alertNoRenegotiation:        "no renegotiation",
+	alertUnrecognizedName:       "unrecognized name",
 	alertNoApplicationProtocol:  "no application protocol",
 }
 
