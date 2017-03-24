@@ -39,9 +39,6 @@ type sessionState struct {
 	cipherSuite  uint16
 	masterSecret []byte
 	certificates [][]byte
-	// usedOldKey is true if the ticket from which this session came from
-	// was encrypted with an older key and thus should be refreshed.
-	usedOldKey bool
 }
 
 func (s *sessionState) equal(i interface{}) bool {
