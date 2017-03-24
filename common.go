@@ -11,7 +11,6 @@ import (
 	"crypto/rand"
 	"crypto/sha512"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -879,7 +878,7 @@ func (c *Config) getCertificate(clientHello *ClientHelloInfo) (*Certificate, err
 	}
 
 	if len(c.Certificates) == 0 {
-		return nil, errors.New("tls: no certificates configured")
+		return nil, alertUnrecognizedName
 	}
 
 	if len(c.Certificates) == 1 || c.NameToCertificate == nil {

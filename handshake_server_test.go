@@ -900,7 +900,7 @@ func TestHandshakeServerEmptyCertificates(t *testing.T) {
 	testClientHelloFailure(t, serverConfig, clientHello, errMsg)
 
 	// With an empty Certificates and a nil GetCertificate, the server
-	// should always return a “no certificates” error.
+	// should always return a “unrecognized name” error.
 	serverConfig.GetCertificate = nil
 
 	clientHello = &clientHelloMsg{
@@ -908,7 +908,7 @@ func TestHandshakeServerEmptyCertificates(t *testing.T) {
 		cipherSuites:       []uint16{TLS_RSA_WITH_RC4_128_SHA},
 		compressionMethods: []uint8{compressionNone},
 	}
-	testClientHelloFailure(t, serverConfig, clientHello, "no certificates")
+	testClientHelloFailure(t, serverConfig, clientHello, "unrecognized name")
 }
 
 // TestCipherSuiteCertPreference ensures that we select an RSA ciphersuite with
