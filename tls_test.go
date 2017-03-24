@@ -633,6 +633,8 @@ func TestCloneNonFuncFields(t *testing.T) {
 			f.Set(reflect.ValueOf(x509.NewCertPool()))
 		case "ClientSessionCache":
 			f.Set(reflect.ValueOf(NewLRUClientSessionCache(10)))
+		case "ServerSessionCache":
+			// TODO
 		case "KeyLogWriter":
 			f.Set(reflect.ValueOf(io.Writer(os.Stdout)))
 		case "NextProtos":

@@ -262,6 +262,21 @@ type ClientSessionCache interface {
 	Put(sessionKey string, cs *ClientSessionState)
 }
 
+const sessionIdLen = 32
+
+// ServerSessionCache is a cache of sessionState objects that can be used by a
+// client to resume a TLS session with a given server. ServerSessionCache
+// implementations should expect to be called concurrently from different
+// goroutines.
+type ServerSessionCache interface {
+	// Get searches for a serialized session associated with the given session
+	// ID. On return, ok is true if one was found.
+	Get(chi *ClientHelloInfo, sessionId string) (session []byte, ok bool)
+
+	// Put adds the serialized session to the cache with the given session ID.
+	Put(cs *ConnectionState, sessionId string, session []byte) error
+}
+
 // SignatureScheme identifies a signature algorithm supported by TLS. See
 // https://tools.ietf.org/html/draft-ietf-tls-tls13-18#section-4.2.3.
 type SignatureScheme uint16
@@ -533,6 +548,10 @@ type Config struct {
 	// resumption.
 	ClientSessionCache ClientSessionCache
 
+	// ServerSessionCache is a cache of sessionState entries for TLS session
+	// resumption.
+	ServerSessionCache ServerSessionCache
+
 	// MinVersion contains the minimum SSL/TLS version that is acceptable.
 	// If zero, then TLS 1.0 is taken as the minimum.
 	MinVersion uint16
@@ -658,6 +677,7 @@ func (c *Config) Clone() *Config {
 		SessionTicketsDisabled:      c.SessionTicketsDisabled,
 		SessionTicketKey:            c.SessionTicketKey,
 		ClientSessionCache:          c.ClientSessionCache,
+		ServerSessionCache:          c.ServerSessionCache,
 		MinVersion:                  c.MinVersion,
 		MaxVersion:                  c.MaxVersion,
 		CurvePreferences:            c.CurvePreferences,
