@@ -10,4 +10,5 @@ ENV CGO_ENABLED=0
 
 RUN go get -d github.com/FiloSottile/crypto-tls-bogo-shim
 WORKDIR /go/src/github.com/FiloSottile/crypto-tls-bogo-shim
+COPY config.json config.json
 CMD ["make", "run"]
